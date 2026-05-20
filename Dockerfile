@@ -1,37 +1,21 @@
-# ---- Build stage ----
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
-WORKDIR /app
-
-# Copy only package files first for better layer caching
-COPY app/package*.json ./
-
-# Install production deps only
-RUN npm Install --only=production
-
-# ---- Runtime stage ----
-FROM node:20-alpine AS runtime
-
-# Security: run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-# Copy deps from builder
-COPY --from=builder /app/node_modules ./node_modules
+COPY app/package.json ./
 
-# Copy application source
+RUN npm install --only=production
+
 COPY app/server.js .
-COPY app/package.json .
 
-# Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
 
 USER appuser
 
 EXPOSE 3000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD wget -qO- http://localhost:3000/health || exit 1
 
