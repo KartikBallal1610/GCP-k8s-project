@@ -7,7 +7,7 @@ WORKDIR /app
 COPY app/package*.json ./
 
 # Install production deps only
-RUN npm ci --only=production
+RUN npm Install --only=production
 
 # ---- Runtime stage ----
 FROM node:20-alpine AS runtime
