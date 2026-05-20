@@ -1,5 +1,5 @@
 # Automated Kubernetes Deployment on GKE
-
+![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=flat&logo=terraform) ![GCP](https://img.shields.io/badge/GCP-4285F4?style=flat&logo=googlecloud) ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat&logo=kubernetes) ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat&logo=githubactions)
 A CI/CD pipeline that automatically builds, containerizes, and deploys a Node.js Hello World app to Google Kubernetes Engine on every push to `main`.
 
 ## Live Application
