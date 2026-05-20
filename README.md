@@ -15,7 +15,7 @@ A CI/CD pipeline that automatically builds, containerizes, and deploys a Node.js
 - **Secrets:** GCP Secret Manager synced to Kubernetes Secrets
 - **Packaging:** Helm chart for Kubernetes manifests
 
-## Deployment Flowchart
+## ♻️ CI/CD Overview
 <img width="1474" height="1080" alt="image" src="https://github.com/user-attachments/assets/3c7d31c6-960b-4c5c-8db9-5534c5237e53" />
 
 
