@@ -98,3 +98,12 @@ git push origin main
 ```bash
 cd terraform && terraform destroy
 ```
+
+
+## 🎁 Bonus Tasks Completed
+
+| Task | Details |
+|------|---------|
+| **Helm** | Kubernetes manifests packaged as a Helm chart under `k8s/helm/hello-app/`. Supports templated values for image tag, replicas, resources, and secrets. Deployed via `helm upgrade --install` in the pipeline. |
+| **Secrets Management** | Sensitive values stored in **GCP Secret Manager**. Pipeline syncs secrets to Kubernetes Secrets at deploy time — never stored in code or GitHub. |
+| **Vulnerability Scanning** | **Trivy** scans the Docker image on every build. Results uploaded to GitHub Security tab as SARIF. |
