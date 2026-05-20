@@ -14,13 +14,12 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0        # zero-downtime deploys
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: hello-app
     spec:
-      # Security context: run as non-root
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -28,8 +27,6 @@ spec:
 
       containers:
         - name: hello-app
-          # IMAGE is replaced by the CI/CD pipeline at deploy time:
-          #   sed -i 's|IMAGE_PLACEHOLDER|<registry>/<image>:<tag>|g' k8s/deployment.yaml
           image: IMAGE_PLACEHOLDER
           imagePullPolicy: Always
           ports:
@@ -39,10 +36,11 @@ spec:
           env:
             - name: PORT
               value: "3000"
-            - name: APP_VERSION
+            - name: APP_ENV
               valueFrom:
-                fieldRef:
-                  fieldPath: metadata.labels['app.kubernetes.io/version']
+                secretKeyRef:
+                  name: app-env-secret
+                  key: value
 
           resources:
             requests:
