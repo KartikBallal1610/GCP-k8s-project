@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:       # allow manual trigger
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -16,15 +16,12 @@ env:
   IMAGE:        us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hello-app/hello-app
 
 jobs:
-  # ──────────────────────────────────────────────────────────────────
-  # Job 1 – Build & push Docker image
-  # ──────────────────────────────────────────────────────────────────
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write    # required for Workload Identity Federation
+      id-token: write
 
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
@@ -33,7 +30,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Authenticate to GCP using Workload Identity Federation (no JSON key needed)
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
@@ -44,7 +40,6 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      # Generate image tags: latest + short SHA
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -67,9 +62,6 @@ jobs:
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
-  # ──────────────────────────────────────────────────────────────────
-  # Job 2 – Scan image for vulnerabilities (bonus)
-  # ──────────────────────────────────────────────────────────────────
   scan:
     name: Vulnerability Scan
     needs: build-and-push
@@ -77,7 +69,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-      security-events: write   # upload SARIF results
+      security-events: write
 
     steps:
       - name: Checkout code
@@ -99,16 +91,13 @@ jobs:
           format:    sarif
           output:    trivy-results.sarif
           severity:  CRITICAL,HIGH
-          exit-code: 0   # don't fail the build; just report
+          exit-code: 0
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
 
-  # ──────────────────────────────────────────────────────────────────
-  # Job 3 – Deploy to GKE
-  # ──────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy to GKE
     needs: [build-and-push, scan]
@@ -133,19 +122,21 @@ jobs:
           cluster_name: ${{ env.CLUSTER_NAME }}
           location:     ${{ env.CLUSTER_ZONE }}
 
-      - name: Substitute image tag in deployment manifest
+      - name: Sync secret from GCP Secret Manager to Kubernetes
         run: |
-          IMAGE_WITH_TAG="${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}"
-          sed -i "s|IMAGE_PLACEHOLDER|${IMAGE_WITH_TAG}|g" k8s/deployment.yaml
-          echo "Deploying image: ${IMAGE_WITH_TAG}"
+          SECRET_VALUE=$(gcloud secrets versions access latest --secret="app-env")
+          kubectl create secret generic app-env-secret \
+            --from-literal=value=$SECRET_VALUE \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Apply Kubernetes manifests
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Deploy with Helm
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-
-      - name: Wait for rollout to complete
-        run: kubectl rollout status deployment/hello-app --timeout=120s
+          helm upgrade --install hello-app k8s/helm/hello-app \
+            --set image.tag=${{ needs.build-and-push.outputs.image_tag }} \
+            --wait --timeout 2m
 
       - name: Get public IP
         run: |

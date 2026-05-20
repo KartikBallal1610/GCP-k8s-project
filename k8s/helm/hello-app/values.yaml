@@ -1,0 +1,22 @@
+replicaCount: 2
+
+image:
+  repository: us-central1-docker.pkg.dev/gcp-k8s-hrgf/hello-app/hello-app
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 3000
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+secret:
+  name: app-env-secret
