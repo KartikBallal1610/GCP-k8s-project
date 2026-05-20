@@ -10,7 +10,7 @@ terraform {
 
   # Store Terraform state in a GCS bucket (create the bucket manually first)
   backend "gcs" {
-    bucket = "YOUR_PROJECT_ID-tfstate"   # <-- replace with your bucket name
+    bucket = "gcp-k8s-hrgf-tfstate-k8s"   # <-- replace with your bucket name
     prefix = "gke/state"
   }
 }
