@@ -1,0 +1,160 @@
+name: Build, Push & Deploy to GKE
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:       # allow manual trigger
+
+env:
+  PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
+  REGION:       us-central1
+  CLUSTER_NAME: hello-gke
+  CLUSTER_ZONE: us-central1-a
+  APP_NAME:     hello-app
+  IMAGE:        us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/hello-app/hello-app
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────
+  # Job 1 – Build & push Docker image
+  # ──────────────────────────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write    # required for Workload Identity Federation
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Authenticate to GCP using Workload Identity Federation (no JSON key needed)
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account:            ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # Generate image tags: latest + short SHA
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags:    ${{ steps.meta.outputs.tags }}
+          labels:  ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+  # ──────────────────────────────────────────────────────────────────
+  # Job 2 – Scan image for vulnerabilities (bonus)
+  # ──────────────────────────────────────────────────────────────────
+  scan:
+    name: Vulnerability Scan
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write   # upload SARIF results
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account:            ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}
+          format:    sarif
+          output:    trivy-results.sarif
+          severity:  CRITICAL,HIGH
+          exit-code: 0   # don't fail the build; just report
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ──────────────────────────────────────────────────────────────────
+  # Job 3 – Deploy to GKE
+  # ──────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to GKE
+    needs: [build-and-push, scan]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account:            ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location:     ${{ env.CLUSTER_ZONE }}
+
+      - name: Substitute image tag in deployment manifest
+        run: |
+          IMAGE_WITH_TAG="${{ env.IMAGE }}:${{ needs.build-and-push.outputs.image_tag }}"
+          sed -i "s|IMAGE_PLACEHOLDER|${IMAGE_WITH_TAG}|g" k8s/deployment.yaml
+          echo "Deploying image: ${IMAGE_WITH_TAG}"
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      - name: Wait for rollout to complete
+        run: kubectl rollout status deployment/hello-app --timeout=120s
+
+      - name: Get public IP
+        run: |
+          echo "Waiting for LoadBalancer IP..."
+          for i in {1..12}; do
+            IP=$(kubectl get svc hello-app-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            if [ -n "$IP" ]; then
+              echo "✅ App is live at: http://${IP}"
+              break
+            fi
+            echo "  (waiting... attempt $i/12)"
+            sleep 10
+          done

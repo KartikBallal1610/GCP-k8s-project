@@ -1,0 +1,12 @@
+{
+  "name": "hello-gke",
+  "version": "1.0.0",
+  "description": "Simple Hello World app for GKE deployment demo",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

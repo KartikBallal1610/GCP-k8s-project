@@ -1,0 +1,18 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+*.tfplan
+
+# Node
+node_modules/
+npm-debug.log
+
+# Secrets / credentials
+*.json
+!package.json
+.env
+*.pem
+*.key

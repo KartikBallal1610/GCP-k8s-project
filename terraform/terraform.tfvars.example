@@ -1,0 +1,10 @@
+# Copy this to terraform.tfvars and fill in your values
+# (terraform.tfvars is in .gitignore)
+
+project_id   = "YOUR_GCP_PROJECT_ID"
+region       = "us-central1"
+zone         = "us-central1-a"
+cluster_name = "hello-gke"
+app_name     = "hello-app"
+node_count   = 2
+machine_type = "e2-medium"
