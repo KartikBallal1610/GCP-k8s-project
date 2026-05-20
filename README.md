@@ -32,8 +32,11 @@ A CI/CD pipeline that automatically builds, containerizes, and deploys a Node.js
 **CI/CD**
 - Trivy vulnerability scan on every build — results in GitHub Security tab
 - Image tagged with Git SHA — every deploy traceable to a commit
-- GCP Secret Manager for secrets — never stored in code or GitHub
+- GCP Secret Manager for secrets — never stored in GitHub.
 
+## 🏗️ Architecture
+
+<pre>
 ┌─────────────────────────────────────────────────┐
 │                  GCP Project                    │
 │                                                 │
@@ -61,6 +64,7 @@ A CI/CD pipeline that automatically builds, containerizes, and deploys a Node.js
 │  │  Docker Images   │  │  App Secrets        │  │
 │  └──────────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────┘
+</pre>
 
 ## How to Run
 
