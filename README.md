@@ -34,6 +34,34 @@ A CI/CD pipeline that automatically builds, containerizes, and deploys a Node.js
 - Image tagged with Git SHA — every deploy traceable to a commit
 - GCP Secret Manager for secrets — never stored in code or GitHub
 
+┌─────────────────────────────────────────────────┐
+│                  GCP Project                    │
+│                                                 │
+│  ┌─────────────────────────────────────────┐    │
+│  │           VPC (hello-gke-vpc)           │    │
+│  │                                         │    │
+│  │  ┌───────────────────────────────────┐  │    │
+│  │  │     Subnet (10.0.0.0/18)          │  │    │
+│  │  │                                   │  │    │
+│  │  │  ┌─────────────────────────────┐  │  │    │
+│  │  │  │      GKE Cluster            │  │  │    │
+│  │  │  │  ├─ Node Pool (2 nodes)     │  │  │    │
+│  │  │  │  ├─ hello-app (2 replicas)  │  │  │    │
+│  │  │  │  └─ LoadBalancer Service    │  │  │    │
+│  │  │  └─────────────────────────────┘  │  │    │
+│  │  │                                   │  │    │
+│  │  │  Secondary IP Ranges:             │  │    │
+│  │  │  ├─ Pods:     10.48.0.0/14        │  │    │
+│  │  │  └─ Services: 10.52.0.0/20        │  │    │
+│  │  └───────────────────────────────────┘  │    │
+│  └─────────────────────────────────────────┘    │
+│                                                 │
+│  ┌──────────────────┐  ┌─────────────────────┐  │
+│  │ Artifact Registry│  │  Secret Manager     │  │
+│  │  Docker Images   │  │  App Secrets        │  │
+│  └──────────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────┘
+
 ## How to Run
 
 ### 1. Provision Infrastructure
